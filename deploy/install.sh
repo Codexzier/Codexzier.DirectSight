@@ -59,7 +59,7 @@ Description=Codexzier DirectSight Service
 After=network.target
 
 [Service]
-ExecStart=$INSTALL_DIR/Codexzier.DirectSight
+ExecStart=$INSTALL_DIR/DirectSight
 WorkingDirectory=$INSTALL_DIR
 Restart=always
 RestartSec=5
