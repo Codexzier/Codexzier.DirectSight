@@ -6,6 +6,7 @@ SERVICE_NAME="codexzier-directsight"
 INSTALL_DIR="/opt/$SERVICE_NAME"
 SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 GITHUB_REPO="Codexzier/Codexzier.DirectSight"
+PROJECT_DIR="DirectSight"
 ARCH="linux-arm64"
 TMP_DIR="/tmp/Codexzier-DirectSight-install"
 
@@ -50,7 +51,7 @@ systemctl stop $SERVICE_NAME 2>/dev/null || true
 # Entpacken
 tar -xzf "$TMP_DIR/app-cds.tar.gz" -C "$INSTALL_DIR"
 
-chmod +x "$INSTALL_DIR/Codexzier.DirectSight"
+chmod +x "$INSTALL_DIR/$PROJECT_DIR
 
 # systemd Service installieren
 cat > "$SERVICE_FILE" <<EOF
@@ -59,7 +60,7 @@ Description=Codexzier DirectSight Service
 After=network.target
 
 [Service]
-ExecStart=$INSTALL_DIR/DirectSight
+ExecStart=$INSTALL_DIR/$PROJECT_DIR
 WorkingDirectory=$INSTALL_DIR
 Restart=always
 RestartSec=5
