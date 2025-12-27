@@ -17,7 +17,7 @@ jobs:
 
     env:
       APP_NAME: CodexzierDirectSight
-      PROJECT_PATH: CodexzierDirectSight/CodexzierDirectSight.csproj
+      PROJECT_PATH: Codexzier.DirectSight/DirectSight.csproj
       RUNTIME: linux-arm64
       CONFIGURATION: Release
 
@@ -48,11 +48,11 @@ jobs:
           mkdir -p artifact
           cp -r publish/* artifact/
           echo "${GITHUB_REF_NAME}" > artifact/VERSION
-          tar -czf codexzierdirectsight-linux-arm64.tar.gz -C artifact .
+          tar -czf codexzier-directsight-linux-arm64.tar.gz -C artifact .
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       with:
-          files: codexzierdirectsight-linux-arm64.tar.gz
+          files: codexzier-directsight-linux-arm64.tar.gz
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
