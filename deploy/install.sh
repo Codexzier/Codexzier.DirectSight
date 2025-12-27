@@ -1,4 +1,3 @@
-#!/usr/bin/env bash
 set -e
 
 APP_NAME="Codexzier-DirectSight"
@@ -51,7 +50,7 @@ systemctl stop $SERVICE_NAME 2>/dev/null || true
 # Entpacken
 tar -xzf "$TMP_DIR/app-cds.tar.gz" -C "$INSTALL_DIR"
 
-chmod +x "$INSTALL_DIR/$PROJECT_DIR
+chmod +x "$INSTALL_DIR/$PROJECT_DIR"
 
 # systemd Service installieren
 cat > "$SERVICE_FILE" <<EOF
