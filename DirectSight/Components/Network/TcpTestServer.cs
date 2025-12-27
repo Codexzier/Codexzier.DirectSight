@@ -2,7 +2,7 @@
 using System.Net.Sockets;
 using System.Text;
 
-namespace DirectSight;
+namespace DirectSight.Components.Network;
 
 public static class TcpTestServer
 {

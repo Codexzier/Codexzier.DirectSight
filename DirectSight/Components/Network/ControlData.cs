@@ -1,6 +1,6 @@
 ﻿using System.Text.Json;
 
-namespace DirectSight;
+namespace DirectSight.Components.Network;
 
 /// <summary>
 /// Datenobjekt, das über das TCP-Protokoll gesendet/empfangen wird.

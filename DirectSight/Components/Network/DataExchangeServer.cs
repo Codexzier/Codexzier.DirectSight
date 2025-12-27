@@ -4,193 +4,193 @@ using System.Text;
 using System.Text.Json;
 using DirectSight.Hardware;
 
-namespace DirectSight;
+namespace DirectSight.Components.Network;
 
 public static class DataExchangeServer
 {
-    private const int Port = 5001; // anderer Port als der Test-Server
+    private const int Port = 5001;
 
-        public static async Task StartAsync(CancellationToken stoppingToken, ILogger logger, RaspberryPwmController? pwmController = null)
+    public static async Task StartAsync(CancellationToken stoppingToken, ILogger logger, RaspberryPwmController? pwmController = null)
+    {
+        if (logger == null) throw new ArgumentNullException(nameof(logger));
+
+        var listener = new TcpListener(IPAddress.Any, Port);
+        listener.Start();
+        logger.LogInformation("Control Unit TCP Server listening on port {Port}", Port);
+
+        try
         {
-            if (logger == null) throw new ArgumentNullException(nameof(logger));
-
-            var listener = new TcpListener(IPAddress.Any, Port);
-            listener.Start();
-            logger.LogInformation("Control Unit TCP Server listening on port {Port}", Port);
-
-            try
+            while (!stoppingToken.IsCancellationRequested)
             {
-                while (!stoppingToken.IsCancellationRequested)
+                if (listener.Pending())
                 {
-                    if (listener.Pending())
+                    var client = await listener.AcceptTcpClientAsync(stoppingToken);
+                    _ = HandleClientAsync(client, logger, pwmController);
+                }
+                else
+                {
+                    await Task.Delay(100, stoppingToken);
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Normaler Stop
+        }
+        finally
+        {
+            listener.Stop();
+        }
+    }
+
+    private static async Task HandleClientAsync(TcpClient client, ILogger logger, RaspberryPwmController? pwmController)
+    {
+        if (logger == null) throw new ArgumentNullException(nameof(logger));
+
+        await using var stream = client.GetStream();
+        using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
+        using var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true);
+        writer.AutoFlush = true;
+
+        logger.LogInformation("Client connected");
+
+        try
+        {
+            while (client.Connected)
+            {
+                string? line;
+                try
+                {
+                    line = await reader.ReadLineAsync();
+                }
+                catch (IOException) // Verbindung unterbrochen
+                {
+                    break;
+                }
+
+                if (line == null)
+                    break; // Client hat Verbindung beendet
+
+                ControlData? incoming;
+                try
+                {
+                    incoming = ControlData.Deserialize(line);
+                }
+                catch (JsonException ex)
+                {
+                    logger.LogWarning(ex, "Fehler beim Deserialisieren der eingehenden Nachricht");
+                    // Bei fehlerhaften Daten senden wir eine Fehler-Antwort
+                    var err = new ControlData { Servo1 = 0, Servo2 = 0, Text = "ERROR: invalid payload" };
+                    await writer.WriteLineAsync(err.Serialize());
+                    continue;
+                }
+
+                if (incoming == null)
+                {
+                    var err = new ControlData { Servo1 = 0, Servo2 = 0, Text = "ERROR: empty payload" };
+                    await writer.WriteLineAsync(err.Serialize());
+                    continue;
+                }
+
+                logger.LogInformation("Received ControlData: Servo1={Servo1}, Servo2={Servo2}, Text={Text}", incoming.Servo1, incoming.Servo2, incoming.Text);
+
+                // Wenn ein PWM-Controller vorhanden ist, setze die Servos anhand des gemappten Pulses
+                List<string> pwmErrors = new();
+                if (pwmController != null)
+                {
+                    // Mappe eingehende Werte intelligent auf Millisekunden
+                    double pulseMs1 = MapServoValueToMs(incoming.Servo1);
+                    double pulseMs2 = MapServoValueToMs(incoming.Servo2);
+
+                    if (!pwmController.IsHardwareAvailable)
                     {
-                        var client = await listener.AcceptTcpClientAsync(stoppingToken);
-                        _ = HandleClientAsync(client, logger, pwmController);
+                        var msg = "PWM hardware not available";
+                        pwmErrors.Add(msg);
+                        logger.LogWarning(msg);
+                        Console.WriteLine(msg);
                     }
                     else
                     {
-                        await Task.Delay(100, stoppingToken);
-                    }
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                // Normaler Stop
-            }
-            finally
-            {
-                listener.Stop();
-            }
-        }
-
-        private static async Task HandleClientAsync(TcpClient client, ILogger logger, RaspberryPwmController? pwmController)
-        {
-            if (logger == null) throw new ArgumentNullException(nameof(logger));
-
-            await using var stream = client.GetStream();
-            using var reader = new StreamReader(stream, Encoding.UTF8, leaveOpen: true);
-            using var writer = new StreamWriter(stream, Encoding.UTF8, leaveOpen: true);
-            writer.AutoFlush = true;
-
-            logger.LogInformation("Client connected");
-
-            try
-            {
-                while (client.Connected)
-                {
-                    string? line;
-                    try
-                    {
-                        line = await reader.ReadLineAsync();
-                    }
-                    catch (IOException) // Verbindung unterbrochen
-                    {
-                        break;
-                    }
-
-                    if (line == null)
-                        break; // Client hat Verbindung beendet
-
-                    ControlData? incoming;
-                    try
-                    {
-                        incoming = ControlData.Deserialize(line);
-                    }
-                    catch (JsonException ex)
-                    {
-                        logger.LogWarning(ex, "Fehler beim Deserialisieren der eingehenden Nachricht");
-                        // Bei fehlerhaften Daten senden wir eine Fehler-Antwort
-                        var err = new ControlData { Servo1 = 0, Servo2 = 0, Text = "ERROR: invalid payload" };
-                        await writer.WriteLineAsync(err.Serialize());
-                        continue;
-                    }
-
-                    if (incoming == null)
-                    {
-                        var err = new ControlData { Servo1 = 0, Servo2 = 0, Text = "ERROR: empty payload" };
-                        await writer.WriteLineAsync(err.Serialize());
-                        continue;
-                    }
-
-                    logger.LogInformation("Received ControlData: Servo1={Servo1}, Servo2={Servo2}, Text={Text}", incoming.Servo1, incoming.Servo2, incoming.Text);
-
-                    // Wenn ein PWM-Controller vorhanden ist, setze die Servos anhand des gemappten Pulses
-                    List<string> pwmErrors = new();
-                    if (pwmController != null)
-                    {
-                        // Mappe eingehende Werte intelligent auf Millisekunden
-                        double pulseMs1 = MapServoValueToMs(incoming.Servo1);
-                        double pulseMs2 = MapServoValueToMs(incoming.Servo2);
-
-                        if (!pwmController.IsHardwareAvailable)
+                        if (!pwmController.TrySetPulseMsChannel1(pulseMs1, out var err1))
                         {
-                            var msg = "PWM hardware not available";
+                            var msg = $"PWM ch1 error: {err1}";
                             pwmErrors.Add(msg);
-                            logger.LogWarning(msg);
+                            logger.LogError(msg);
                             Console.WriteLine(msg);
                         }
-                        else
-                        {
-                            if (!pwmController.TrySetPulseMsChannel1(pulseMs1, out var err1))
-                            {
-                                var msg = $"PWM ch1 error: {err1}";
-                                pwmErrors.Add(msg);
-                                logger.LogError(msg);
-                                Console.WriteLine(msg);
-                            }
 
-                            if (!pwmController.TrySetPulseMsChannel2(pulseMs2, out var err2))
-                            {
-                                var msg = $"PWM ch2 error: {err2}";
-                                pwmErrors.Add(msg);
-                                logger.LogError(msg);
-                                Console.WriteLine(msg);
-                            }
+                        if (!pwmController.TrySetPulseMsChannel2(pulseMs2, out var err2))
+                        {
+                            var msg = $"PWM ch2 error: {err2}";
+                            pwmErrors.Add(msg);
+                            logger.LogError(msg);
+                            Console.WriteLine(msg);
                         }
                     }
-
-                    // Als Antwort senden wir ein Ack zurück. Falls PWM-Fehler aufgetreten sind, hängen wir diese an den Text an.
-                    var ackText = $"ACK {DateTime.UtcNow:O}";
-                    if (pwmErrors.Count > 0)
-                    {
-                        ackText += " | PWM_ERR: " + string.Join("; ", pwmErrors);
-                    }
-
-                    var response = new ControlData
-                    {
-                        Servo1 = incoming.Servo1,
-                        Servo2 = incoming.Servo2,
-                        Text = ackText
-                    };
-
-                    await writer.WriteLineAsync(response.Serialize());
                 }
+
+                // Als Antwort senden wir ein Ack zurück. Falls PWM-Fehler aufgetreten sind, hängen wir diese an den Text an.
+                var ackText = $"ACK {DateTime.UtcNow:O}";
+                if (pwmErrors.Count > 0)
+                {
+                    ackText += " | PWM_ERR: " + string.Join("; ", pwmErrors);
+                }
+
+                var response = new ControlData
+                {
+                    Servo1 = incoming.Servo1,
+                    Servo2 = incoming.Servo2,
+                    Text = ackText
+                };
+
+                await writer.WriteLineAsync(response.Serialize());
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Unerwarteter Fehler im Client-Handler");
+        }
+        finally
+        {
+            try
+            {
+                client.Close();
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "Unerwarteter Fehler im Client-Handler");
+                logger.LogDebug(ex, "Fehler beim Schließen des Clients");
             }
-            finally
-            {
-                try
-                {
-                    client.Close();
-                }
-                catch (Exception ex)
-                {
-                    logger.LogDebug(ex, "Fehler beim Schließen des Clients");
-                }
 
-                logger.LogInformation("Client disconnected");
-            }
+            logger.LogInformation("Client disconnected");
         }
+    }
 
-        // Mapping-Regeln (angenommen):
-        // - Wenn value in [0,180] => interpretiere als Winkel (Grad) und mappe linear auf [1ms,2ms]
-        // - Wenn value in [1000,2000] => interpretiere als Mikrosekunden und wandle in ms um
-        // - Wenn value in [1,2] => interpretiere direkt als ms
-        // - Sonst: clamp in den Bereich [1ms,2ms]
-        private static double MapServoValueToMs(int value)
+    // Mapping-Regeln (angenommen):
+    // - Wenn value in [0,180] => interpretiere als Winkel (Grad) und mappe linear auf [1ms,2ms]
+    // - Wenn value in [1000,2000] => interpretiere als Mikrosekunden und wandle in ms um
+    // - Wenn value in [1,2] => interpretiere direkt als ms
+    // - Sonst: clamp in den Bereich [1ms,2ms]
+    private static double MapServoValueToMs(int value)
+    {
+        if (value >= 0 && value <= 180)
         {
-            if (value >= 0 && value <= 180)
-            {
-                // Winkel -> ms
-                return 1.0 + (value / 180.0) * 1.0; // 0deg ->1ms, 180deg ->2ms
-            }
-
-            if (value >= 1000 && value <= 2000)
-            {
-                // Mikrosekunden -> ms
-                return value / 1000.0;
-            }
-
-            if (value >= 1 && value <= 2)
-            {
-                // Millisekunden als integer
-                return (double)value;
-            }
-
-            // Fallback: clamp
-            return Math.Clamp(value, 1.0, 2.0);
+            // Winkel -> ms
+            return 1.0 + (value / 180.0) * 1.0; // 0deg ->1ms, 180deg ->2ms
         }
+
+        if (value >= 1000 && value <= 2000)
+        {
+            // Mikrosekunden -> ms
+            return value / 1000.0;
+        }
+
+        if (value >= 1 && value <= 2)
+        {
+            // Millisekunden als integer
+            return (double)value;
+        }
+
+        // Fallback: clamp
+        return Math.Clamp(value, 1.0, 2.0);
+    }
 }
