@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -e
 
-APP_NAME="CodexzierDirectSight"
-SERVICE_NAME="codexzierdirectsight"
+APP_NAME="Codexzier-DirectSight"
+SERVICE_NAME="codexzier-directsight"
 INSTALL_DIR="/opt/$SERVICE_NAME"
 SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
-GITHUB_REPO="Codexzier/CodexzierDirectSight"
+GITHUB_REPO="Codexzier/Codexzier.DirectSight"
 ARCH="linux-arm64"
-TMP_DIR="/tmp/CodexzierDirectSight-install"
+TMP_DIR="/tmp/Codexzier-DirectSight-install"
 
 echo "== Installing $APP_NAME =="
 
@@ -42,29 +42,29 @@ fi
 
 # Download
 echo "Downloading $DOWNLOAD_URL"
-curl -L "$DOWNLOAD_URL" -o "$TMP_DIR/app.tar.gz"
+curl -L "$DOWNLOAD_URL" -o "$TMP_DIR/app-cds.tar.gz"
 
 # Stop Service (falls vorhanden)
 systemctl stop $SERVICE_NAME 2>/dev/null || true
 
 # Entpacken
-tar -xzf "$TMP_DIR/app.tar.gz" -C "$INSTALL_DIR"
+tar -xzf "$TMP_DIR/app-cds.tar.gz" -C "$INSTALL_DIR"
 
-chmod +x "$INSTALL_DIR/CodexzierDirectSight"
+chmod +x "$INSTALL_DIR/Codexzier.DirectSight"
 
 # systemd Service installieren
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
-Description=CodexzierDirectSight Worker Service
+Description=Codexzier DirectSight Service
 After=network.target
 
 [Service]
-ExecStart=$INSTALL_DIR/CodexzierDirectSight
+ExecStart=$INSTALL_DIR/Codexzier.DirectSight
 WorkingDirectory=$INSTALL_DIR
 Restart=always
 RestartSec=5
 KillSignal=SIGINT
-SyslogIdentifier=CodexzierDirectSight
+SyslogIdentifier=Codexzier-DirectSight
 User=root
 
 [Install]
