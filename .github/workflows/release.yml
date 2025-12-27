@@ -16,8 +16,8 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      APP_NAME: CodexzierDirectSight
-      PROJECT_PATH: Codexzier.DirectSight/DirectSight.csproj
+      APP_NAME: Codexzier-DirectSight
+      PROJECT_PATH: DirectSight/DirectSight.csproj
       RUNTIME: linux-arm64
       CONFIGURATION: Release
 
