@@ -9,6 +9,8 @@ namespace DirectSight.Components.Network;
 public static class DataExchangeServer
 {
     private const int Port = 5001;
+    
+    public static ControlData LastReceivedData { get; private set; } = new ControlData();
 
     public static async Task StartAsync(CancellationToken stoppingToken, ILogger logger, RaspberryPwmController? pwmController = null)
     {
@@ -188,6 +190,32 @@ public static class DataExchangeServer
         {
             // Millisekunden als integer
             return (double)value;
+        }
+
+        // Fallback: clamp
+        return Math.Clamp(value, 1.0, 2.0);
+    }
+    
+    // ich brauche eine Methode mit der ich die Millisekunden direkt setzen kann,
+    // welches dann passend in DutyCycle umgerechnet wird.
+    public static double MapServoValueToMs(double value)
+    { 
+        if (value >= 0 && value <= 180)
+        {
+            // Winkel -> ms
+            return 1.0 + (value / 180.0) * 1.0; // 0deg ->1ms, 180deg ->2ms
+        }
+
+        if (value >= 1000 && value <= 2000)
+        {
+            // Mikrosekunden -> ms
+            return value / 1000.0;
+        }
+
+        if (value >= 1 && value <= 2)
+        {
+            // Millisekunden als double
+            return value;
         }
 
         // Fallback: clamp

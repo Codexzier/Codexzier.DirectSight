@@ -24,8 +24,8 @@ public class Worker(ILogger<Worker> logger) : BackgroundService
             }
             
             // Test: Move servos back and forth
-            this._servos.SetPosition(0, this._positionValue);
-            this._servos.SetPosition(1, this._positionValue);
+            this._servos.SetPosition(0, DataExchangeServer.LastReceivedData.Servo1);
+            this._servos.SetPosition(1, DataExchangeServer.LastReceivedData.Servo2);
             
             if(this._positionValue >= 0.10)
                 this._positionValue = 0.05;
