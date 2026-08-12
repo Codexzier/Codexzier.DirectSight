@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace DirectSight.Hardware;
+namespace DirectSight.Components.Hardware;
 
 /// <summary>
     /// Verwaltet zwei PWM-Ausgänge für Servos auf einem Raspberry Pi.

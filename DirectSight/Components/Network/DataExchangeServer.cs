@@ -2,7 +2,7 @@
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
-using DirectSight.Hardware;
+using DirectSight.Components.Hardware;
 
 namespace DirectSight.Components.Network;
 
